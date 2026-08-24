@@ -40,7 +40,10 @@
     .answer h2 { padding-right:34px; }
     .answer-text { margin:0 0 10px; color:#fff; font-size:11px; line-height:1.4; white-space:pre-wrap; }
     .transcript { color:#888; font-size:9px; line-height:1.3; }
-    .close { position:absolute; right:10px; top:10px; padding:7px 9px; background:#292929; }
+    .close, .voice { position:absolute; top:10px; padding:7px 9px; background:#292929; }
+    .close { right:10px; }
+    .voice { right:61px; border-radius:9px; color:#fff; font-size:10px; font-weight:800; }
+    .voice.on { background:var(--accent); }
     @keyframes pulse { 50% { box-shadow:0 0 0 10px #ff5a1f15; } }
     .listening .dot { background:#ffcc33; box-shadow:0 0 8px #ffcc33; }
     .listening .talk { animation:pulse .8s infinite; }
@@ -77,6 +80,7 @@
     </section>
 
     <section class="overlay answer" id="answerPanel" hidden>
+      <button class="voice on" id="voiceToggle">STEM</button>
       <button class="close" id="closeAnswer">SLUIT</button>
       <h2 id="answerTitle">Antwoord</h2>
       <div class="answer-text" id="answerText"></div>
@@ -108,10 +112,12 @@
     const answerTitle = document.getElementById('answerTitle');
     const answerText = document.getElementById('answerText');
     const transcriptText = document.getElementById('transcriptText');
+    const voiceToggle = document.getElementById('voiceToggle');
     let listening = false;
     let recorder;
     let stream;
     let chunks = [];
+    let voiceEnabled = localStorage.getItem('jacco-voice') !== 'off';
     let toastTimer;
     let index = Number(localStorage.getItem('jacco-mode') || 0);
     if (!Number.isInteger(index) || index < 0 || index >= modes.length) index = 0;
@@ -207,6 +213,7 @@
         answerText.textContent = result.answer;
         transcriptText.textContent = 'Gehoord: ' + result.transcript;
         answerPanel.hidden = false;
+        speakAnswer(result.answer);
       } catch (error) {
         if (String(error.message).includes('unauthorized')) {
           localStorage.removeItem('jacco-bridge-token');
@@ -216,6 +223,31 @@
       } finally {
         setReady();
       }
+    }
+
+    function speakAnswer(text) {
+      if (!voiceEnabled || !text) return;
+      const spokenText = String(text).slice(0, 3000);
+      if (typeof PluginMessageHandler !== 'undefined') {
+        PluginMessageHandler.postMessage(JSON.stringify({
+          message:'Lees uitsluitend de tekst hieronder rustig in het Nederlands voor. Voeg niets toe.\n\n' + spokenText,
+          useLLM:true,
+          wantsR1Response:true,
+          wantsJournalEntry:false
+        }));
+        return;
+      }
+      if ('speechSynthesis' in window) {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(spokenText);
+        utterance.lang = 'nl-NL';
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    function updateVoiceButton() {
+      voiceToggle.classList.toggle('on', voiceEnabled);
+      voiceToggle.textContent = voiceEnabled ? 'STEM AAN' : 'STEM UIT';
     }
 
     async function pairBridge() {
@@ -254,6 +286,13 @@
     pairButton.addEventListener('click', pairBridge);
     pairCode.addEventListener('keydown', event => { if (event.key === 'Enter') pairBridge(); });
     document.getElementById('closeAnswer').addEventListener('click', () => { answerPanel.hidden = true; });
+    voiceToggle.addEventListener('click', () => {
+      voiceEnabled = !voiceEnabled;
+      localStorage.setItem('jacco-voice', voiceEnabled ? 'on' : 'off');
+      if (!voiceEnabled && 'speechSynthesis' in window) speechSynthesis.cancel();
+      updateVoiceButton();
+      showToast(voiceEnabled ? 'Stem aan' : 'Stem uit');
+    });
 
     window.addEventListener('scrollUp', () => move(-1));
     window.addEventListener('scrollDown', () => move(1));
@@ -274,6 +313,7 @@
     });
 
     render();
+    updateVoiceButton();
     if (!localStorage.getItem('jacco-bridge-token')) pairPanel.hidden = false;
   </script>
 </body>
