@@ -1,141 +1,280 @@
 <!doctype html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=240,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Jacco Console</title>
-<style>
-:root{--accent:#ff5a1f}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{width:240px;height:282px;margin:0;overflow:hidden;background:#090909;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-#app{width:240px;height:282px;padding:12px;border:3px solid var(--accent);display:flex;flex-direction:column;transition:.2s}
-header{display:flex;justify-content:space-between;align-items:center}
-.brand{color:#aaa;font-size:10px;font-weight:700;letter-spacing:1.4px}
-.status{color:#aaa;font-size:9px}
-.dot{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:#35d072;box-shadow:0 0 7px #35d072}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.icon{font-size:31px;margin-bottom:7px}
-h1{font-size:27px;margin:0}
-.hint{width:180px;min-height:34px;margin:9px 0 0;color:#bbb;font-size:11px;line-height:1.35}
-footer{display:grid;grid-template-columns:38px 1fr 38px;gap:7px}
-button{border:0;color:#fff;cursor:pointer}
-.arrow{height:36px;border-radius:10px;background:#242424;font-size:20px}
-.talk{height:40px;border-radius:11px;background:var(--accent);font-size:11px;font-weight:800}
-.talk.active{transform:scale(.96);filter:brightness(1.2)}
-.pager{height:8px;display:flex;justify-content:center;gap:4px;margin-top:4px}
-.pip{width:5px;height:5px;border-radius:5px;background:#555}
-.pip.on{width:14px;background:var(--accent)}
-#toast{position:absolute;top:42px;left:20px;width:200px;padding:8px;border-radius:8px;background:#eee;color:#111;text-align:center;font-size:10px;font-weight:bold;opacity:0;transform:translateY(-8px);transition:.2s;pointer-events:none}
-#toast.show{opacity:1;transform:translateY(0)}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=240, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#ff5a1f">
+  <title>Jacco Console</title>
+  <style>
+    :root { --accent:#ff5a1f; --ink:#fff; --muted:#a6a6a6; --panel:#171717; }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html, body { width:240px; height:282px; margin:0; overflow:hidden; background:#090909; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body { touch-action:manipulation; }
+    #app { position:relative; width:240px; height:282px; padding:12px; display:flex; flex-direction:column; border:3px solid var(--accent); transition:border-color .18s ease; }
+    .top { display:flex; justify-content:space-between; align-items:center; min-height:22px; }
+    .brand { color:var(--muted); font-size:10px; font-weight:700; letter-spacing:1.6px; }
+    .online { display:flex; align-items:center; gap:5px; color:#adadad; font-size:9px; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#35d072; box-shadow:0 0 7px #35d07299; }
+    .mode { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+    .icon { font-size:30px; line-height:1; margin-bottom:8px; }
+    h1 { margin:0; font-size:27px; letter-spacing:1px; }
+    .hint { width:178px; min-height:34px; margin:9px 0 0; color:#bdbdbd; font-size:11px; line-height:1.35; }
+    .footer { display:grid; grid-template-columns:38px 1fr 38px; gap:7px; align-items:center; }
+    button { appearance:none; border:0; color:#fff; font:inherit; cursor:pointer; }
+    .arrow { height:34px; border-radius:10px; background:#242424; font-size:18px; }
+    .talk { height:38px; border-radius:12px; background:var(--accent); font-size:11px; font-weight:800; letter-spacing:.6px; transition:transform .12s ease, filter .12s ease; }
+    .talk:active, .talk.listening { transform:scale(.96); filter:brightness(1.18); }
+    .pager { position:absolute; left:0; right:0; bottom:3px; display:flex; justify-content:center; gap:4px; pointer-events:none; }
+    .pip { width:4px; height:4px; border-radius:5px; background:#505050; }
+    .pip.active { width:13px; background:var(--accent); }
+    #toast { position:absolute; left:15px; right:15px; top:39px; z-index:3; padding:8px; border-radius:9px; background:#f3f3f3; color:#111; text-align:center; font-size:10px; font-weight:700; opacity:0; transform:translateY(-8px); pointer-events:none; transition:.18s ease; }
+    #toast.show { opacity:1; transform:translateY(0); }
+    .overlay { position:absolute; inset:3px; z-index:5; padding:15px; display:flex; flex-direction:column; justify-content:center; background:#090909; }
+    .overlay[hidden] { display:none; }
+    .overlay h2 { margin:0 0 8px; font-size:20px; }
+    .overlay p { margin:0 0 11px; color:#bdbdbd; font-size:11px; line-height:1.35; }
+    .pair-row { display:flex; gap:7px; }
+    .pair-row input { width:125px; min-width:0; padding:9px; border:1px solid #444; border-radius:9px; outline:none; background:#1b1b1b; color:#fff; font-size:16px; letter-spacing:2px; }
+    .pair-row button, .close { padding:9px 11px; border-radius:9px; background:var(--accent); font-size:10px; font-weight:800; }
+    .answer { justify-content:flex-start; overflow:auto; }
+    .answer h2 { padding-right:34px; }
+    .answer-text { margin:0 0 10px; color:#fff; font-size:11px; line-height:1.4; white-space:pre-wrap; }
+    .transcript { color:#888; font-size:9px; line-height:1.3; }
+    .close { position:absolute; right:10px; top:10px; padding:7px 9px; background:#292929; }
+    @keyframes pulse { 50% { box-shadow:0 0 0 10px #ff5a1f15; } }
+    .listening .dot { background:#ffcc33; box-shadow:0 0 8px #ffcc33; }
+    .listening .talk { animation:pulse .8s infinite; }
+  </style>
 </head>
 <body>
-<section id="app">
-  <div id="toast">Stand gewijzigd</div>
+  <main id="app">
+    <div id="toast">Stand gewijzigd</div>
+    <header class="top">
+      <div class="brand">JACCO CONSOLE</div>
+      <div class="online"><span class="dot"></span><span id="state">GEREED</span></div>
+    </header>
 
-  <header>
-    <span class="brand">JACCO CONSOLE</span>
-    <span class="status"><span class="dot"></span><span id="state">GEREED</span></span>
-  </header>
+    <section class="mode" id="modeArea">
+      <div class="icon" id="icon">◆</div>
+      <h1 id="modeName">WERK</h1>
+      <p class="hint" id="hint">Beleid, criminaliteit en cybersecurity</p>
+    </section>
 
-  <main>
-    <div class="icon" id="icon">◆</div>
-    <h1 id="name">WERK</h1>
-    <div class="hint" id="hint">Beleid, criminaliteit en cybersecurity</div>
+    <footer class="footer">
+      <button class="arrow" id="prev" aria-label="Vorige stand">‹</button>
+      <button class="talk" id="talk">HOUD IN &amp; SPREEK</button>
+      <button class="arrow" id="next" aria-label="Volgende stand">›</button>
+    </footer>
+    <div class="pager" id="pager"></div>
+
+    <section class="overlay" id="pairPanel" hidden>
+      <h2>Console koppelen</h2>
+      <p>Vul de tijdelijke 8-cijferige code uit Terminal in.</p>
+      <div class="pair-row">
+        <input id="pairCode" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="00000000">
+        <button id="pairButton">KOPPEL</button>
+      </div>
+    </section>
+
+    <section class="overlay answer" id="answerPanel" hidden>
+      <button class="close" id="closeAnswer">SLUIT</button>
+      <h2 id="answerTitle">Antwoord</h2>
+      <div class="answer-text" id="answerText"></div>
+      <div class="transcript" id="transcriptText"></div>
+    </section>
   </main>
 
-  <footer>
-    <button class="arrow" id="prev">‹</button>
-    <button class="talk" id="talk">HOUD IN &amp; SPREEK</button>
-    <button class="arrow" id="next">›</button>
-  </footer>
+  <script>
+    const BRIDGE_URL = 'https://swing-heritage-that-blocked.trycloudflare.com';
+    const modes = [
+      { name:'WERK', icon:'◆', color:'#ff5a1f', hint:'Beleid, criminaliteit en cybersecurity' },
+      { name:'SCRIPTIE', icon:'✦', color:'#8b7cff', hint:'Denk, toets en leg onderzoeksideeën vast' },
+      { name:'THUIS', icon:'⌂', color:'#35d072', hint:'Mac mini, Synology en dagelijkse routines' },
+      { name:'VOERTUIGEN', icon:'◉', color:'#46a7ff', hint:'BMW, Africa Twin en DR650-logboek' }
+    ];
 
-  <div class="pager" id="pager"></div>
-</section>
+    const app = document.getElementById('app');
+    const modeName = document.getElementById('modeName');
+    const icon = document.getElementById('icon');
+    const hint = document.getElementById('hint');
+    const talk = document.getElementById('talk');
+    const state = document.getElementById('state');
+    const pager = document.getElementById('pager');
+    const toast = document.getElementById('toast');
+    const pairPanel = document.getElementById('pairPanel');
+    const pairCode = document.getElementById('pairCode');
+    const pairButton = document.getElementById('pairButton');
+    const answerPanel = document.getElementById('answerPanel');
+    const answerTitle = document.getElementById('answerTitle');
+    const answerText = document.getElementById('answerText');
+    const transcriptText = document.getElementById('transcriptText');
+    let listening = false;
+    let recorder;
+    let stream;
+    let chunks = [];
+    let toastTimer;
+    let index = Number(localStorage.getItem('jacco-mode') || 0);
+    if (!Number.isInteger(index) || index < 0 || index >= modes.length) index = 0;
 
-<script>
-const modes=[
- {name:"WERK",icon:"◆",color:"#ff5a1f",hint:"Beleid, criminaliteit en cybersecurity"},
- {name:"SCRIPTIE",icon:"✦",color:"#8b7cff",hint:"Denk, toets en leg onderzoeksideeën vast"},
- {name:"THUIS",icon:"⌂",color:"#35d072",hint:"Mac mini, Synology en dagelijkse routines"},
- {name:"VOERTUIGEN",icon:"◉",color:"#46a7ff",hint:"BMW, Africa Twin en DR650-logboek"}
-];
+    function render(announce=false) {
+      const mode = modes[index];
+      document.documentElement.style.setProperty('--accent', mode.color);
+      modeName.textContent = mode.name;
+      icon.textContent = mode.icon;
+      hint.textContent = mode.hint;
+      pager.innerHTML = modes.map((_, i) => `<span class="pip ${i === index ? 'active' : ''}"></span>`).join('');
+      localStorage.setItem('jacco-mode', String(index));
+      if (announce) showToast(mode.name);
+    }
 
-let index=Number(localStorage.getItem("console-mode")||0);
-let listening=false;
-let timer;
+    function move(delta) {
+      index = (index + delta + modes.length) % modes.length;
+      render(true);
+    }
 
-const nameEl=document.getElementById("name");
-const iconEl=document.getElementById("icon");
-const hintEl=document.getElementById("hint");
-const pager=document.getElementById("pager");
-const talk=document.getElementById("talk");
-const state=document.getElementById("state");
-const toast=document.getElementById("toast");
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 650);
+    }
 
-function render(notify=false){
- const m=modes[index];
- document.documentElement.style.setProperty("--accent",m.color);
- nameEl.textContent=m.name;
- iconEl.textContent=m.icon;
- hintEl.textContent=m.hint;
- pager.innerHTML=modes.map((_,i)=>`<span class="pip ${i===index?"on":""}"></span>`).join("");
- localStorage.setItem("console-mode",index);
- if(notify)show(m.name);
-}
+    function setReady() {
+      listening = false;
+      app.classList.remove('listening');
+      talk.classList.remove('listening');
+      talk.textContent = 'HOUD IN & SPREEK';
+      state.textContent = 'GEREED';
+    }
 
-function move(step){
- index=(index+step+modes.length)%modes.length;
- render(true);
-}
+    async function startListening() {
+      if (listening) return;
+      if (!localStorage.getItem('jacco-bridge-token')) {
+        pairPanel.hidden = false;
+        pairCode.focus();
+        return;
+      }
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        showToast('Microfoon niet ondersteund');
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        const preferred = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'];
+        const mimeType = preferred.find(type => MediaRecorder.isTypeSupported(type));
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        chunks = [];
+        recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+        recorder.onstop = sendRecording;
+        recorder.start();
+      } catch (error) {
+        showToast('Geef microfoontoegang');
+        setReady();
+        return;
+      }
+      listening = true;
+      app.classList.add('listening');
+      talk.classList.add('listening');
+      talk.textContent = 'LUISTEREN…';
+      state.textContent = 'LUISTERT';
+    }
 
-function show(text){
- toast.textContent=text;
- toast.classList.add("show");
- clearTimeout(timer);
- timer=setTimeout(()=>toast.classList.remove("show"),700);
-}
+    function stopListening() {
+      if (!listening) return;
+      listening = false;
+      state.textContent = 'VERWERKT';
+      talk.textContent = 'EVEN WACHTEN…';
+      if (recorder && recorder.state !== 'inactive') recorder.stop();
+    }
 
-function listenStart(){
- if(listening)return;
- listening=true;
- talk.classList.add("active");
- talk.textContent="LUISTEREN…";
- state.textContent="LUISTERT";
-}
+    async function sendRecording() {
+      const mimeType = recorder.mimeType || 'audio/webm';
+      const audio = new Blob(chunks, { type:mimeType });
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      try {
+        const response = await fetch(BRIDGE_URL + '/command', {
+          method:'POST',
+          headers:{
+            'Authorization':'Bearer ' + localStorage.getItem('jacco-bridge-token'),
+            'Content-Type':mimeType,
+            'X-Console-Mode':modes[index].name.toLowerCase()
+          },
+          body:audio
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'bridge_error');
+        answerTitle.textContent = modes[index].name;
+        answerText.textContent = result.answer;
+        transcriptText.textContent = 'Gehoord: ' + result.transcript;
+        answerPanel.hidden = false;
+      } catch (error) {
+        if (String(error.message).includes('unauthorized')) {
+          localStorage.removeItem('jacco-bridge-token');
+          pairPanel.hidden = false;
+        }
+        showToast('Verbinding mislukt');
+      } finally {
+        setReady();
+      }
+    }
 
-function listenEnd(){
- if(!listening)return;
- listening=false;
- talk.classList.remove("active");
- talk.textContent="HOUD IN & SPREEK";
- state.textContent="GEREED";
- show("Test ontvangen · "+modes[index].name);
-}
+    async function pairBridge() {
+      const code = pairCode.value.trim();
+      if (!/^\d{8}$/.test(code)) {
+        showToast('Vul 8 cijfers in');
+        return;
+      }
+      pairButton.disabled = true;
+      pairButton.textContent = '…';
+      try {
+        const response = await fetch(BRIDGE_URL + '/pair', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({code})
+        });
+        const result = await response.json();
+        if (!response.ok || !result.token) throw new Error('pairing_failed');
+        localStorage.setItem('jacco-bridge-token', result.token);
+        pairCode.value = '';
+        pairPanel.hidden = true;
+        showToast('Bridge gekoppeld');
+      } catch (error) {
+        showToast('Code onjuist of verlopen');
+      } finally {
+        pairButton.disabled = false;
+        pairButton.textContent = 'KOPPEL';
+      }
+    }
 
-document.getElementById("prev").onclick=()=>move(-1);
-document.getElementById("next").onclick=()=>move(1);
+    document.getElementById('prev').addEventListener('click', () => move(-1));
+    document.getElementById('next').addEventListener('click', () => move(1));
+    talk.addEventListener('pointerdown', startListening);
+    talk.addEventListener('pointerup', stopListening);
+    talk.addEventListener('pointercancel', stopListening);
+    pairButton.addEventListener('click', pairBridge);
+    pairCode.addEventListener('keydown', event => { if (event.key === 'Enter') pairBridge(); });
+    document.getElementById('closeAnswer').addEventListener('click', () => { answerPanel.hidden = true; });
 
-talk.addEventListener("pointerdown",listenStart);
-talk.addEventListener("pointerup",listenEnd);
-talk.addEventListener("pointercancel",listenEnd);
+    window.addEventListener('scrollUp', () => move(-1));
+    window.addEventListener('scrollDown', () => move(1));
+    window.addEventListener('sideClick', () => {
+      if (!answerPanel.hidden) answerPanel.hidden = true;
+      else showToast('Geselecteerd · ' + modes[index].name);
+    });
+    window.addEventListener('longPressStart', startListening);
+    window.addEventListener('longPressEnd', stopListening);
 
-window.addEventListener("scrollUp",()=>move(-1));
-window.addEventListener("scrollDown",()=>move(1));
-window.addEventListener("sideClick",()=>show("Geselecteerd · "+modes[index].name));
-window.addEventListener("longPressStart",listenStart);
-window.addEventListener("longPressEnd",listenEnd);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') move(-1);
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') move(1);
+      if (event.code === 'Space') { event.preventDefault(); startListening(); }
+    });
+    document.addEventListener('keyup', (event) => {
+      if (event.code === 'Space') stopListening();
+    });
 
-document.addEventListener("keydown",e=>{
- if(e.key==="ArrowLeft"||e.key==="ArrowUp")move(-1);
- if(e.key==="ArrowRight"||e.key==="ArrowDown")move(1);
- if(e.code==="Space"){e.preventDefault();listenStart()}
-});
-document.addEventListener("keyup",e=>{
- if(e.code==="Space")listenEnd()
-});
-
-render();
-</script>
+    render();
+    if (!localStorage.getItem('jacco-bridge-token')) pairPanel.hidden = false;
+  </script>
 </body>
 </html>
